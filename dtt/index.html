@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<meta charset=UTF-8 />
+<title>dtt</title>
+<style>
+body {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 1em;
+	min-height: 100vh;
+	overflow: hidden;
+}
+</style>
+
+<div id=controls style="display: inline-block;">
+<select id=modesel>
+	<option value=reps>Repetitions</option>
+	<option value=pace>Repetitions, paced</option>
+	<option value=hold>Endurance</option>
+</select><span id=pacecont style="margin-left: 1em;">min reps/sec: <input type=number id=paceinp step=0.1 value=0.9 /></span><br /><br />
+<button id=scorebtn></button>
+</div>
+
+<script>
+function nobubble(e) {
+	e.stopPropagation();
+}
+controls.addEventListener("mousedown", nobubble);
+controls.addEventListener("mouseup", nobubble);
+
+var mode;
+var reps;
+var dntm;
+var uptm;
+var best;
+
+var modes = {};
+
+modes.reps = {};
+modes.reps.init = function init() {
+	reps = 0;
+};
+modes.reps.scor = function scor() {
+	return `${reps} reps`;
+};
+modes.reps.ondn = function ondn() {
+	++reps;
+};
+modes.reps.onup = function onup() {};
+
+modes.pace = {};
+modes.pace.init = function init() {
+	reps = 0;
+	dntm = 0;
+	uptm = 0;
+	best = 0;
+};
+modes.pace.scor = function scor() {
+	if (isNaN(paceinp.valueAsNumber) || dntm + 1000 / paceinp.valueAsNumber < Date.now()) {
+		if (reps > best)
+			best = reps;
+		dntm = 0;
+	}
+	return `${reps} reps (best ${best})`;
+};
+modes.pace.ondn = function ondn() {
+	if(dntm == 0)
+		reps = 0;
+	dntm = Date.now();
+	++reps;
+};
+modes.pace.onup = function onup() {};
+
+modes.hold = {};
+modes.hold.init = function init() {
+	dntm = 0;
+	uptm = 0;
+	best = 0;
+};
+modes.hold.scor = function scor() {
+	function msfmt(t) {
+		return `${
+			Math.floor(t / 60000)
+		}:${
+			("0" + Math.floor(t / 1000) % 60).slice(-2)
+		}.${
+			("0" + Math.floor(t / 10) % 100).slice(-2)
+		}`;
+	}
+	var delt = dntm && (uptm || Date.now()) - dntm;
+	return `${msfmt(delt)} (best ${msfmt(best)})`;
+};
+modes.hold.ondn = function ondn() {
+	dntm = Date.now();
+	uptm = 0;
+};
+modes.hold.onup = function onup() {
+	uptm = Date.now();
+	var delt = uptm - dntm;
+	if (delt > best)
+		best = delt;
+};
+
+function setup() {
+	mode = modesel.value;
+	pacecont.style.visibility = ["hidden", "visible"][+(mode == "pace")];
+	modes[mode].init();
+	update();
+}
+function update() {
+	scorebtn.innerText = modes[mode].scor();
+}
+
+modesel.addEventListener("change", setup);
+scorebtn.addEventListener("click", function() {
+	modes[mode].init();
+});
+
+setup();
+
+document.body.addEventListener("mousedown", function() {
+	modes[mode].ondn();
+});
+document.body.addEventListener("mouseup", function() {
+	modes[mode].onup();
+});
+
+setInterval(update);
+</script>
